@@ -1,88 +1,117 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import ttk, messagebox
+from game import TicTacToeGame
+from agents import HumanAgent, RandomAgent, MinimaxAgent
+from rl_agent import QLearningAgent
 
-class TicTacToe:
+class TicTacToeGUI:
     def __init__(self):
         self.window = tk.Tk()
         self.window.title("Tic Tac Toe")
-        self.current_player = "X"
-        self.board = [" " for _ in range(9)]
+        
+        # Game instance
+        self.game = TicTacToeGame()
+        
+        # Agents
+        self.agents = {
+            "Human": HumanAgent(),
+            "Random": RandomAgent(),
+            "Minimax": MinimaxAgent(),
+            "Q-Learning": QLearningAgent()  # This should be loaded from a trained model
+        }
+        
+        # Setup GUI
+        self.setup_gui()
+        
+    def setup_gui(self):
+        # Player selection
+        frame_top = ttk.Frame(self.window, padding="10")
+        frame_top.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        ttk.Label(frame_top, text="Player X:").grid(row=0, column=0, padx=5)
+        self.player_x = ttk.Combobox(frame_top, values=list(self.agents.keys()))
+        self.player_x.set("Human")
+        self.player_x.grid(row=0, column=1, padx=5)
+        
+        ttk.Label(frame_top, text="Player O:").grid(row=0, column=2, padx=5)
+        self.player_o = ttk.Combobox(frame_top, values=list(self.agents.keys()))
+        self.player_o.set("Q-Learning")
+        self.player_o.grid(row=0, column=3, padx=5)
+        
+        # Game board
+        frame_board = ttk.Frame(self.window, padding="10")
+        frame_board.grid(row=1, column=0)
+        
         self.buttons = []
-        
-        # Create and configure the game grid
-        for i in range(3):
-            self.window.grid_rowconfigure(i, weight=1)
-            self.window.grid_columnconfigure(i, weight=1)
-        
-        # Create the buttons
         for i in range(3):
             for j in range(3):
-                button = tk.Button(
-                    self.window,
+                button = ttk.Button(
+                    frame_board,
                     text="",
-                    font=('Arial', 20),
-                    width=6,
-                    height=3,
-                    command=lambda row=i, col=j: self.button_click(row, col)
+                    width=10,
+                    command=lambda row=i, col=j: self.make_move(row, col)
                 )
-                button.grid(row=i, column=j, sticky="nsew", padx=2, pady=2)
+                button.grid(row=i, column=j, padx=2, pady=2)
                 self.buttons.append(button)
         
         # Reset button
-        reset_button = tk.Button(
+        ttk.Button(
             self.window,
-            text="Reset Game",
-            font=('Arial', 12),
+            text="New Game",
             command=self.reset_game
-        )
-        reset_button.grid(row=3, column=0, columnspan=3, sticky="nsew", padx=2, pady=2)
-
-    def button_click(self, row, col):
-        index = row * 3 + col
-        if self.board[index] == " ":
-            self.board[index] = self.current_player
-            self.buttons[index].config(text=self.current_player)
-            
-            if self.current_player == "X":
-                self.buttons[index].config(fg="blue")
-            else:
-                self.buttons[index].config(fg="red")
-            
-            if self.check_winner():
-                messagebox.showinfo("Game Over", f"Player {self.current_player} wins!")
-                self.reset_game()
-            elif " " not in self.board:
-                messagebox.showinfo("Game Over", "It's a tie!")
-                self.reset_game()
-            else:
-                self.current_player = "O" if self.current_player == "X" else "X"
-
-    def check_winner(self):
-        # Check rows, columns and diagonals
-        winning_combinations = [
-            [0, 1, 2], [3, 4, 5], [6, 7, 8],  # Rows
-            [0, 3, 6], [1, 4, 7], [2, 5, 8],  # Columns
-            [0, 4, 8], [2, 4, 6]  # Diagonals
-        ]
+        ).grid(row=2, column=0, pady=10)
+    
+    def make_move(self, row, col):
+        if not self.game.is_valid_move(row, col):
+            return
         
-        for combo in winning_combinations:
-            if (self.board[combo[0]] != " " and
-                self.board[combo[0]] == self.board[combo[1]] == self.board[combo[2]]):
-                return True
-        return False
-
+        # Make the move
+        self.game.make_move(row, col)
+        self.update_board()
+        
+        if self.game.game_over:
+            self.show_game_result()
+            return
+        
+        # If next player is AI, make its move
+        current_player = "X" if self.game.current_player == 1 else "O"
+        player_selection = self.player_x if current_player == "X" else self.player_o
+        
+        if player_selection.get() != "Human":
+            agent = self.agents[player_selection.get()]
+            row, col = agent.get_move(self.game)
+            self.game.make_move(row, col)
+            self.update_board()
+            
+            if self.game.game_over:
+                self.show_game_result()
+    
+    def update_board(self):
+        for i in range(3):
+            for j in range(3):
+                value = self.game.board[i, j]
+                text = "X" if value == 1 else "O" if value == -1 else ""
+                self.buttons[i * 3 + j].configure(text=text)
+    
+    def show_game_result(self):
+        if self.game.winner == 1:
+            messagebox.showinfo("Game Over", "Player X wins!")
+        elif self.game.winner == -1:
+            messagebox.showinfo("Game Over", "Player O wins!")
+        else:
+            messagebox.showinfo("Game Over", "It's a tie!")
+    
     def reset_game(self):
-        self.board = [" " for _ in range(9)]
-        self.current_player = "X"
+        self.game.reset()
         for button in self.buttons:
-            button.config(text="")
-
+            button.configure(text="")
+    
     def run(self):
         self.window.mainloop()
 
 def main():
-    game = TicTacToe()
-    game.run()
+    gui = TicTacToeGUI()
+    gui.run()
 
 if __name__ == "__main__":
     main()
