@@ -152,16 +152,44 @@ class TicTacToeArena:
             self.match_stats_labels[key].grid(row=i, column=1, sticky="e", padx=5)
     
     def setup_stats_panel(self):
-        """Setup the right panel with responsive graphs."""
+        """Setup the right panel with responsive graphs using tabs."""
         stats_frame = ttk.LabelFrame(self.main_frame, text="Performance Analysis", padding=10)
         stats_frame.grid(row=0, column=1, sticky="nsew")
         stats_frame.grid_columnconfigure(0, weight=1)
-        stats_frame.grid_rowconfigure(0, weight=3)  # Graphs take more space
-        stats_frame.grid_rowconfigure(1, weight=1)  # History takes less space
+        stats_frame.grid_rowconfigure(0, weight=1)
+        
+        # Create notebook for tabs
+        self.stats_notebook = ttk.Notebook(stats_frame)
+        self.stats_notebook.grid(row=0, column=0, sticky="nsew")
+        
+        # Create tabs
+        self.learning_ai_tab = ttk.Frame(self.stats_notebook)
+        self.x_player_tab = ttk.Frame(self.stats_notebook)
+        self.o_player_tab = ttk.Frame(self.stats_notebook)
+        
+        self.stats_notebook.add(self.learning_ai_tab, text="Learning AI")
+        self.stats_notebook.add(self.x_player_tab, text="Player X")
+        self.stats_notebook.add(self.o_player_tab, text="Player O")
+        
+        # Setup Learning AI tab
+        self.setup_learning_ai_tab()
+        
+        # Setup X Player tab
+        self.setup_player_tab(self.x_player_tab, "X")
+        
+        # Setup O Player tab
+        self.setup_player_tab(self.o_player_tab, "O")
+    
+    def setup_learning_ai_tab(self):
+        """Setup the Learning AI performance tab."""
+        # Configure grid
+        self.learning_ai_tab.grid_columnconfigure(0, weight=1)
+        self.learning_ai_tab.grid_rowconfigure(0, weight=3)
+        self.learning_ai_tab.grid_rowconfigure(1, weight=1)
         
         # Graphs container
-        graphs_frame = ttk.Frame(stats_frame)
-        graphs_frame.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
+        graphs_frame = ttk.Frame(self.learning_ai_tab)
+        graphs_frame.grid(row=0, column=0, sticky="nsew", pady=(10, 10))
         graphs_frame.grid_columnconfigure(0, weight=1)
         graphs_frame.grid_rowconfigure(0, weight=1)
         
@@ -173,8 +201,8 @@ class TicTacToeArena:
         # Initialize plots
         self.update_performance_plots()
         
-        # Historical stats (responsive)
-        history_frame = ttk.LabelFrame(stats_frame, text="Historical Performance", padding=10)
+        # Historical stats
+        history_frame = ttk.LabelFrame(self.learning_ai_tab, text="Historical Performance", padding=10)
         history_frame.grid(row=1, column=0, sticky="nsew")
         history_frame.grid_columnconfigure(0, weight=1)
         history_frame.grid_rowconfigure(0, weight=1)
@@ -188,6 +216,92 @@ class TicTacToeArena:
         scrollbar.grid(row=0, column=1, sticky="ns")
         
         self.update_history_text()
+    
+    def setup_player_tab(self, tab, player):
+        """Setup a player-specific performance tab."""
+        # Configure grid
+        tab.grid_columnconfigure(0, weight=1)
+        tab.grid_rowconfigure(0, weight=1)
+        
+        # Stats container
+        stats_container = ttk.Frame(tab)
+        stats_container.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        stats_container.grid_columnconfigure(0, weight=1)
+        
+        # Create figure for player stats
+        fig = plt.Figure(figsize=(8, 6))
+        ax = fig.add_subplot(111)
+        canvas = FigureCanvasTkAgg(fig, master=stats_container)
+        canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
+        
+        # Store references for updates
+        if player == "X":
+            self.x_fig = fig
+            self.x_ax = ax
+            self.x_canvas = canvas
+        else:
+            self.o_fig = fig
+            self.o_ax = ax
+            self.o_canvas = canvas
+        
+        # Initialize player plot
+        self.update_player_plot(player)
+    
+    def update_player_plot(self, player):
+        """Update the performance plot for a specific player."""
+        ax = self.x_ax if player == "X" else self.o_ax
+        fig = self.x_fig if player == "X" else self.o_fig
+        canvas = self.x_canvas if player == "X" else self.o_canvas
+        
+        # Clear previous plot
+        ax.clear()
+        
+        # Get total games
+        total_games = sum(self.current_match_stats.values())
+        
+        if total_games > 0:
+            # Calculate win rate over time
+            wins = self.current_match_stats[f"{player.lower()}_wins"]
+            win_rate = (wins / total_games) * 100
+            
+            # Create bar chart
+            labels = ['Wins', 'Losses', 'Ties']
+            if player == "X":
+                values = [
+                    self.current_match_stats["x_wins"],
+                    self.current_match_stats["o_wins"],
+                    self.current_match_stats["ties"]
+                ]
+            else:
+                values = [
+                    self.current_match_stats["o_wins"],
+                    self.current_match_stats["x_wins"],
+                    self.current_match_stats["ties"]
+                ]
+            
+            colors = ['#2196F3', '#F44336', '#4CAF50']
+            ax.bar(labels, values, color=colors)
+            
+            # Add win rate text
+            ax.text(0.5, 0.95, f'Win Rate: {win_rate:.1f}%',
+                   horizontalalignment='center',
+                   transform=ax.transAxes,
+                   fontsize=12,
+                   fontweight='bold')
+            
+            # Configure plot
+            ax.set_title(f'Player {player} Performance', pad=20, fontsize=12, fontweight='bold')
+            ax.set_ylabel('Number of Games', fontsize=10)
+            
+            # Add value labels on top of bars
+            for i, v in enumerate(values):
+                ax.text(i, v, str(v), ha='center', va='bottom')
+        else:
+            ax.text(0.5, 0.5, "No games played yet", ha='center', va='center',
+                   fontsize=12, transform=ax.transAxes)
+        
+        # Update canvas
+        canvas.draw()
     
     def validate_number(self, value):
         """Validate numeric input for spinboxes."""
@@ -214,7 +328,7 @@ class TicTacToeArena:
             self.status_label.configure(wraplength=event.width * 0.2)
     
     def update_match_stats(self):
-        """Update the current match statistics display with real-time calculations."""
+        """Update all statistics displays."""
         total_games = sum(self.current_match_stats.values())
         if total_games > 0:
             win_rate = (self.current_match_stats["x_wins"] / total_games) * 100
@@ -225,10 +339,12 @@ class TicTacToeArena:
         self.match_stats_labels["o_wins"].config(text=str(self.current_match_stats["o_wins"]))
         self.match_stats_labels["ties"].config(text=str(self.current_match_stats["ties"]))
         
-        # Update plots in real-time
+        # Update all plots
         if total_games % 10 == 0:  # Update every 10 games for performance
             self.update_performance_plots()
             self.update_history_text()
+            self.update_player_plot("X")
+            self.update_player_plot("O")
     
     def update_performance_plots(self):
         """Update the performance analysis plots with real-time data."""
@@ -238,6 +354,11 @@ class TicTacToeArena:
         
         # Only plot if we have data
         if len(self.session_stats['episodes']) > 0:
+            # Get Learning AI's role (X or O)
+            is_learning_x = self.player_x.get() == "Learning AI"
+            learning_role = "X" if is_learning_x else "O"
+            opponent_role = "O" if is_learning_x else "X"
+            
             # Calculate win rates for random opponent
             if len(self.session_stats['vs_random']['wins']) > 0:
                 vs_random_wr = [wins/(wins+ties+losses) if (wins+ties+losses) > 0 else 0 
@@ -248,7 +369,7 @@ class TicTacToeArena:
                 
                 # Win rates over time
                 self.ax1.plot(self.session_stats['episodes'], vs_random_wr, 
-                             label='vs Random', color='#2196F3', linewidth=2)
+                             label=f'vs Random ({opponent_role})', color='#2196F3', linewidth=2)
                 
                 # Non-loss rate (wins + ties)
                 vs_random_nlr = [(wins+ties)/(wins+ties+losses) if (wins+ties+losses) > 0 else 0 
@@ -258,7 +379,7 @@ class TicTacToeArena:
                                     self.session_stats['vs_random']['losses'])]
                 
                 self.ax2.plot(self.session_stats['episodes'], vs_random_nlr,
-                             label='Non-loss Rate', color='#4CAF50', linewidth=2)
+                             label=f'vs Random ({opponent_role})', color='#4CAF50', linewidth=2)
             
             # Add perfect opponent data if it exists
             if len(self.session_stats['vs_perfect']['wins']) > 0:
@@ -269,24 +390,39 @@ class TicTacToeArena:
                                     self.session_stats['vs_perfect']['losses'])]
                 
                 self.ax1.plot(self.session_stats['episodes'], vs_perfect_wr,
-                             label='vs Perfect', color='#F44336', linewidth=2)
+                             label=f'vs Perfect ({opponent_role})', color='#F44336', linewidth=2)
+                
+                # Non-loss rate for perfect opponent
+                vs_perfect_nlr = [(wins+ties)/(wins+ties+losses) if (wins+ties+losses) > 0 else 0 
+                                 for wins, ties, losses in zip(
+                                     self.session_stats['vs_perfect']['wins'],
+                                     self.session_stats['vs_perfect']['ties'],
+                                     self.session_stats['vs_perfect']['losses'])]
+                
+                self.ax2.plot(self.session_stats['episodes'], vs_perfect_nlr,
+                             label=f'vs Perfect ({opponent_role})', color='#FF9800', linewidth=2)
             
             # Configure plots
-            self.ax1.set_title('Real-time Win Rates', pad=10, fontsize=10, fontweight='bold')
+            self.ax1.set_title(f'Learning AI Performance (Playing as {learning_role})\nWin Rate Over Time', 
+                             pad=10, fontsize=10, fontweight='bold')
             self.ax1.set_ylabel('Win Rate', fontsize=9)
+            self.ax1.set_xlabel('Training Episodes', fontsize=9)
             self.ax1.grid(True, linestyle='--', alpha=0.7)
-            self.ax1.legend(fontsize=8)
+            self.ax1.legend(fontsize=8, loc='upper left')
             self.ax1.set_ylim(0, 1)
             
-            self.ax2.set_title('Learning Progress', pad=10, fontsize=10, fontweight='bold')
-            self.ax2.set_xlabel('Games in Session', fontsize=9)
+            self.ax2.set_title(f'Learning AI Success Rate (Win + Tie)\nPlaying as {learning_role}', 
+                             pad=10, fontsize=10, fontweight='bold')
+            self.ax2.set_xlabel('Training Episodes', fontsize=9)
             self.ax2.set_ylabel('Non-loss Rate', fontsize=9)
             self.ax2.grid(True, linestyle='--', alpha=0.7)
-            self.ax2.legend(fontsize=8)
+            self.ax2.legend(fontsize=8, loc='upper left')
             self.ax2.set_ylim(0, 1)
         else:
-            self.ax1.text(0.5, 0.5, "Waiting for games...", ha='center', va='center')
-            self.ax2.text(0.5, 0.5, "Waiting for games...", ha='center', va='center')
+            self.ax1.text(0.5, 0.5, "Waiting for training data...", 
+                         ha='center', va='center', fontsize=10)
+            self.ax2.text(0.5, 0.5, "Waiting for training data...", 
+                         ha='center', va='center', fontsize=10)
         
         plt.tight_layout()
         self.canvas.draw()
@@ -296,11 +432,18 @@ class TicTacToeArena:
         self.history_text.delete(1.0, tk.END)
         
         if len(self.session_stats['episodes']) == 0:
-            self.history_text.insert(tk.END, "No games played in current session.")
+            self.history_text.insert(tk.END, "No training data available in current session.")
             return
         
-        self.history_text.insert(tk.END, "Current Session Summary\n", "heading")
+        # Get Learning AI's role
+        is_learning_x = self.player_x.get() == "Learning AI"
+        learning_role = "X" if is_learning_x else "O"
+        opponent_role = "O" if is_learning_x else "X"
+        
+        self.history_text.insert(tk.END, f"Learning AI Training Summary\n", "heading")
         self.history_text.insert(tk.END, "=" * 40 + "\n\n")
+        self.history_text.insert(tk.END, f"Playing as: {learning_role}\n", "subheading")
+        self.history_text.insert(tk.END, "-" * 20 + "\n\n")
         
         # Calculate latest stats for both opponents
         for opponent, title in [('vs_random', 'Random AI'), ('vs_perfect', 'Perfect AI')]:
@@ -318,14 +461,20 @@ class TicTacToeArena:
                 ties = self.session_stats[opponent]['ties'][-1]
                 losses = self.session_stats[opponent]['losses'][-1]
                 
-                self.history_text.insert(tk.END, f"Against {title}:\n", "subheading")
-                self.history_text.insert(tk.END, f"• Win Rate:  {wins/total:.1%}\n")
-                self.history_text.insert(tk.END, f"• Tie Rate:  {ties/total:.1%}\n")
-                self.history_text.insert(tk.END, f"• Loss Rate: {losses/total:.1%}\n\n")
+                self.history_text.insert(tk.END, f"Against {title} ({opponent_role}):\n", "subheading")
+                self.history_text.insert(tk.END, f"• Win Rate:     {wins/total:.1%}\n")
+                self.history_text.insert(tk.END, f"• Tie Rate:     {ties/total:.1%}\n")
+                self.history_text.insert(tk.END, f"• Loss Rate:    {losses/total:.1%}\n")
+                self.history_text.insert(tk.END, f"• Total Games:  {total}\n\n")
+        
+        # Add training progress
+        episodes = self.session_stats['episodes'][-1]
+        self.history_text.insert(tk.END, f"Training Progress:\n", "subheading")
+        self.history_text.insert(tk.END, f"• Episodes Completed: {episodes:,}\n")
         
         # Configure tags for styling
-        self.history_text.tag_configure("heading", font=("Arial", 10, "bold"))
-        self.history_text.tag_configure("subheading", font=("Arial", 9, "bold"))
+        self.history_text.tag_configure("heading", font=("Arial", 11, "bold"))
+        self.history_text.tag_configure("subheading", font=("Arial", 10, "bold"))
         self.history_text.configure(state="disabled")
     
     def make_ai_move(self):
