@@ -3,37 +3,48 @@ import matplotlib.pyplot as plt
 from game import TicTacToeGame
 from agents import RandomAgent, MinimaxAgent
 from rl_agent import QLearningAgent
+from training_stats import TrainingStats
+import time
 
-def train_agent(episodes=10000, eval_interval=500):
-    # Initialize agents and game
+def train_agent(episodes=10000, eval_interval=100, eval_games=100, progress_callback=None):
+    """Train the Q-learning agent and evaluate its performance."""
+    # Initialize components
     rl_agent = QLearningAgent()
     random_opponent = RandomAgent()
     minimax_opponent = MinimaxAgent()
     game = TicTacToeGame()
+    stats = TrainingStats()
     
-    # Training metrics
-    random_winrates = []
-    minimax_winrates = []
-    episodes_x = []
+    print("Starting training...")
+    start_time = time.time()
     
     # Training loop
     for episode in range(episodes):
         game.reset()
         rl_agent.reset()
         
+        # Update progress
+        if progress_callback:
+            progress_callback(episode)
+        
         # Training game against random opponent
         while not game.game_over:
             # RL agent's turn
             if game.current_player == 1:
+                state = rl_agent.board_to_state(game.board)
                 move = rl_agent.get_move(game)
                 game.make_move(*move)
                 
                 # Learn from the move
+                next_state = rl_agent.board_to_state(game.board) if not game.game_over else None
+                next_moves = game.get_valid_moves() if not game.game_over else []
+                
                 if game.game_over:
-                    reward = 1.0 if game.winner == 1 else (-1.0 if game.winner == -1 else 0.0)
-                    rl_agent.learn(reward, game)
+                    reward = 1.0 if game.winner == 1 else (-1.0 if game.winner == -1 else 0.1)
                 else:
-                    rl_agent.learn(0.0, game)
+                    reward = 0.0
+                
+                rl_agent.learn(state, move, reward, next_state, next_moves)
             
             # Random opponent's turn
             else:
@@ -42,56 +53,85 @@ def train_agent(episodes=10000, eval_interval=500):
         
         # Evaluation phase
         if (episode + 1) % eval_interval == 0:
-            random_wins = 0
-            minimax_wins = 0
-            n_eval_games = 100
+            print(f"\nEvaluation at episode {episode + 1}")
             
             # Evaluate against random opponent
-            for _ in range(n_eval_games):
-                game.reset()
-                while not game.game_over:
-                    if game.current_player == 1:
-                        move = rl_agent.get_move(game)
-                    else:
-                        move = random_opponent.get_move(game)
-                    game.make_move(*move)
-                if game.winner == 1:
-                    random_wins += 1
+            random_results = evaluate_agent(rl_agent, random_opponent, eval_games)
+            stats.add_evaluation_result(
+                episode + 1, 
+                'random',
+                random_results['wins'],
+                random_results['losses'],
+                random_results['ties'],
+                eval_games
+            )
+            print(f"vs Random - Win Rate: {random_results['wins']/eval_games:.2%}")
             
             # Evaluate against minimax opponent
-            for _ in range(n_eval_games):
-                game.reset()
-                while not game.game_over:
-                    if game.current_player == 1:
-                        move = rl_agent.get_move(game)
-                    else:
-                        move = minimax_opponent.get_move(game)
-                    game.make_move(*move)
-                if game.winner == 1:
-                    minimax_wins += 1
+            minimax_results = evaluate_agent(rl_agent, minimax_opponent, eval_games)
+            stats.add_evaluation_result(
+                episode + 1,
+                'minimax',
+                minimax_results['wins'],
+                minimax_results['losses'],
+                minimax_results['ties'],
+                eval_games
+            )
+            print(f"vs Minimax - Win Rate: {minimax_results['wins']/eval_games:.2%}")
             
-            # Record metrics
-            random_winrates.append(random_wins / n_eval_games)
-            minimax_winrates.append(minimax_wins / n_eval_games)
-            episodes_x.append(episode + 1)
-            
-            print(f"Episode {episode + 1}")
-            print(f"Winrate vs Random: {random_wins/n_eval_games:.2%}")
-            print(f"Winrate vs Minimax: {minimax_wins/n_eval_games:.2%}")
+            # Save training progress plot
+            stats.plot_training_progress('training_progress.png')
     
-    # Plot training progress
-    plt.figure(figsize=(10, 6))
-    plt.plot(episodes_x, random_winrates, label='vs Random')
-    plt.plot(episodes_x, minimax_winrates, label='vs Minimax')
-    plt.xlabel('Episodes')
-    plt.ylabel('Win Rate')
-    plt.title('RL Agent Training Progress')
-    plt.legend()
-    plt.grid(True)
-    plt.savefig('training_progress.png')
-    plt.close()
+    # Final progress update
+    if progress_callback:
+        progress_callback(episodes)
+    
+    elapsed_time = time.time() - start_time
+    print(f"\nTraining completed in {elapsed_time:.1f} seconds")
+    print(f"Final evaluation results:")
+    print(f"vs Random - Win Rate: {random_results['wins']/eval_games:.2%}")
+    print(f"vs Minimax - Win Rate: {minimax_results['wins']/eval_games:.2%}")
     
     return rl_agent
 
+def evaluate_agent(agent, opponent, n_games):
+    """Evaluate an agent against an opponent."""
+    results = {'wins': 0, 'losses': 0, 'ties': 0}
+    game = TicTacToeGame()
+    
+    for _ in range(n_games):
+        game.reset()
+        while not game.game_over:
+            # Agent's turn
+            if game.current_player == 1:
+                move = agent.get_move(game)
+            # Opponent's turn
+            else:
+                move = opponent.get_move(game)
+            game.make_move(*move)
+        
+        if game.winner == 1:
+            results['wins'] += 1
+        elif game.winner == -1:
+            results['losses'] += 1
+        else:
+            results['ties'] += 1
+    
+    return results
+
 if __name__ == "__main__":
-    trained_agent = train_agent() 
+    # Train with different parameters for experimentation
+    TRAINING_PARAMS = [
+        {'episodes': 1000, 'eval_interval': 50, 'eval_games': 100},
+        {'episodes': 5000, 'eval_interval': 100, 'eval_games': 100},
+        {'episodes': 10000, 'eval_interval': 200, 'eval_games': 100}
+    ]
+    
+    print("Select training configuration:")
+    for i, params in enumerate(TRAINING_PARAMS):
+        print(f"{i+1}. Episodes: {params['episodes']}, "
+              f"Eval Interval: {params['eval_interval']}, "
+              f"Eval Games: {params['eval_games']}")
+    
+    choice = int(input("Enter choice (1-3): ")) - 1
+    trained_agent = train_agent(**TRAINING_PARAMS[choice]) 
