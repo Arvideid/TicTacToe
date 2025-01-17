@@ -5,6 +5,7 @@ This module contains different agent types ranging from simple random moves to p
 
 import numpy as np
 import random
+from .game import TicTacToeGame
 
 class Agent:
     """Base class for all Tic-Tac-Toe agents."""
@@ -116,66 +117,73 @@ class MinimaxAgent(Agent):
             self.cache[cache_key] = result
             return result
         
-        best_move = valid_moves[0]
-        if player == 1:  # Maximizing player
+        # Maximizing player
+        if player == 1:
             best_value = float('-inf')
+            best_move = None
             for move in valid_moves:
-                board_copy = board.copy()
-                board_copy[move] = player
-                value, _ = self._minimax(board_copy, -player, alpha, beta)
-                
+                new_board = board.copy()
+                new_board[move] = player
+                value, _ = self._minimax(new_board, -player, alpha, beta)
                 if value > best_value:
                     best_value = value
                     best_move = move
-                
                 alpha = max(alpha, best_value)
-                if beta <= alpha:  # Beta cutoff
-                    break
-        else:  # Minimizing player
+                if beta <= alpha:
+                    break  # Beta cutoff
+            result = (best_value, best_move)
+            self.cache[cache_key] = result
+            return result
+        
+        # Minimizing player
+        else:
             best_value = float('inf')
+            best_move = None
             for move in valid_moves:
-                board_copy = board.copy()
-                board_copy[move] = player
-                value, _ = self._minimax(board_copy, -player, alpha, beta)
-                
+                new_board = board.copy()
+                new_board[move] = player
+                value, _ = self._minimax(new_board, -player, alpha, beta)
                 if value < best_value:
                     best_value = value
                     best_move = move
-                
                 beta = min(beta, best_value)
-                if beta <= alpha:  # Alpha cutoff
-                    break
-        
-        result = (best_value, best_move)
-        self.cache[cache_key] = result
-        return result
+                if beta <= alpha:
+                    break  # Alpha cutoff
+            result = (best_value, best_move)
+            self.cache[cache_key] = result
+            return result
     
     def _check_winner(self, board):
         """
-        Check if there's a winner on the board.
+        Check if there is a winner in the current board state.
         
         Args:
             board: NumPy array of current board state
             
         Returns:
-            int or None: 1 for X win, -1 for O win, None if no winner
+            int: 1 if X wins, -1 if O wins, 0 if tie, None if game is not over
         """
-        # Check rows and columns
-        for i in range(3):
-            if abs(sum(board[i, :])) == 3:
-                return board[i, 0]
-            if abs(sum(board[:, i])) == 3:
-                return board[0, i]
+        # Check rows
+        for row in board:
+            if all(x == row[0] for x in row) and row[0] != 0:
+                return row[0]
+        
+        # Check columns
+        for col in range(3):
+            if all(board[row][col] == board[0][col] for row in range(3)) and board[0][col] != 0:
+                return board[0][col]
         
         # Check diagonals
-        diag_sum = sum(board[i, i] for i in range(3))
-        if abs(diag_sum) == 3:
-            return board[0, 0]
+        if all(board[i][i] == board[0][0] for i in range(3)) and board[0][0] != 0:
+            return board[0][0]
+        if all(board[i][2 - i] == board[0][2] for i in range(3)) and board[0][2] != 0:
+            return board[0][2]
         
-        anti_diag_sum = sum(board[i, 2-i] for i in range(3))
-        if abs(anti_diag_sum) == 3:
-            return board[0, 2]
+        # Check for tie
+        if not any(0 in row for row in board):
+            return 0
         
+        # Game is not over
         return None
 
 class QLearningAgent(Agent):
@@ -183,7 +191,7 @@ class QLearningAgent(Agent):
     Q-Learning agent that learns to play Tic-Tac-Toe through experience.
     Uses an epsilon-greedy strategy for exploration vs exploitation.
     """
-    def __init__(self, learning_rate=0.4, discount_factor=0.95, initial_epsilon=0.9):
+    def __init__(self, learning_rate, discount_factor, initial_epsilon, min_epsilon, epsilon_decay_rate):
         """
         Initialize Q-Learning agent with learning parameters.
         
@@ -191,13 +199,15 @@ class QLearningAgent(Agent):
             learning_rate (float): Rate at which agent learns from new experiences (0-1)
             discount_factor (float): Weight given to future rewards (0-1)
             initial_epsilon (float): Initial exploration rate (0-1)
+            min_epsilon (float): Minimum exploration rate
+            epsilon_decay_rate (float): Rate at which exploration decreases
         """
         self.q_table = {}  # State-action value table
         self.lr = learning_rate
         self.gamma = discount_factor
         self.initial_epsilon = initial_epsilon
-        self.min_epsilon = 0.05  # Minimum exploration rate
-        self.epsilon_decay = 0.997  # Rate at which exploration decreases
+        self.min_epsilon = min_epsilon  # Minimum exploration rate
+        self.epsilon_decay = epsilon_decay_rate  # Rate at which exploration decreases
         self.epsilon = initial_epsilon
         self.current_state = None
         self.current_move = None
@@ -212,7 +222,7 @@ class QLearningAgent(Agent):
         self.current_move = None
         self.games_played += 1
         # Decay epsilon for less exploration over time
-        self.epsilon = max(self.min_epsilon, 
+        self.epsilon = max(self.min_epsilon,
                          self.initial_epsilon * (self.epsilon_decay ** self.games_played))
 
     def board_to_state(self, board):
@@ -237,72 +247,56 @@ class QLearningAgent(Agent):
         Returns:
             tuple: (row, col) of chosen move
         """
-        state = self.board_to_state(game.board)
+        self.current_state = self.board_to_state(game.board)
         valid_moves = game.get_valid_moves()
+        epsilon_val = self.epsilon
         
-        # Initialize Q-values for new state
-        if state not in self.q_table:
-            self.q_table[state] = {str(move): 0.0 for move in valid_moves}
-        
-        self.current_state = state
-        
-        # Epsilon-greedy action selection
-        if np.random.random() < self.epsilon:
-            # Exploration: choose random move
-            move = valid_moves[np.random.randint(len(valid_moves))]
+        # Exploration vs exploitation
+        if random.random() < epsilon_val:
+            # Explore
+            self.current_move = random.choice(valid_moves)
+            return self.current_move
         else:
-            # Exploitation: choose best known move
-            q_values = {move: self.q_table[state].get(str(move), 0.0) 
-                       for move in valid_moves}
+            # Exploit
+            if self.current_state not in self.q_table:
+                # Initialize Q-values for new state
+                self.q_table[self.current_state] = {str(move): 0.0 for move in valid_moves}
             
-            # Get moves with maximum Q-value (handle ties randomly)
-            max_q = max(q_values.values())
-            best_moves = [move for move, q in q_values.items() 
-                         if q == max_q]
+            # Get Q-values for current state
+            q_values = self.q_table[self.current_state]
             
-            move = best_moves[np.random.randint(len(best_moves))]
-        
-        self.current_move = move
-        return move
+            # Choose action with highest Q-value
+            best_move = max(valid_moves, key=lambda move: q_values.get(str(move), 0.0))
+            self.current_move = best_move
+            return best_move
 
     def calculate_reward(self, game, next_state):
         """
-        Calculate reward for the last action taken.
-        Implements a sophisticated reward system considering:
-        - Game outcomes (win/loss/tie)
-        - Strategic positions (center, corners)
-        - Blocking opponent wins
-        - Setting up winning opportunities
+        Calculate reward based on game outcome and strategic moves.
         
         Args:
             game: TicTacToeGame instance
-            next_state: State after action
+            next_state: Next game state after move
             
         Returns:
-            float: Calculated reward value
+            float: Reward value
         """
-        if game.game_over:
-            if game.winner == game.current_player:
-                return 5.0  # Win
-            elif game.winner == 0:
-                return 1.0  # Tie
-            else:
-                return -3.0  # Loss
+        if game.winner == game.current_player:
+            return 5.0  # Win
+        elif game.winner == 0:
+            return 1.0  # Tie
+        elif game.winner == -game.current_player:
+            return -3.0  # Loss
         
-        # Check if we blocked opponent's win
+        # Check if opponent is about to win and we're blocking
         opponent = -game.current_player
-        game_copy = game.__class__()
-        game_copy.board = game.board.copy()
-        game_copy.current_player = opponent
-        
-        # Try opponent moves to detect blocked wins
         blocked_win = False
-        for move in game_copy.get_valid_moves():
-            game_copy.board[move] = opponent
-            if abs(sum(game_copy.board[i, :])) == 3 or \
-               abs(sum(game_copy.board[:, i])) == 3 or \
-               abs(sum(np.diag(game_copy.board))) == 3 or \
-               abs(sum(np.diag(np.fliplr(game_copy.board)))) == 3:
+        for move in game.get_valid_moves():
+            game_copy = TicTacToeGame()
+            game_copy.board = game.board.copy()
+            game_copy.current_player = opponent
+            game_copy.make_move(*move)
+            if game_copy.winner == opponent:
                 blocked_win = True
                 break
             game_copy.board[move] = 0
