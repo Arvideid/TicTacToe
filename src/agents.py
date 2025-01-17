@@ -5,7 +5,7 @@ This module contains different agent types ranging from simple random moves to p
 
 import numpy as np
 import random
-from .game import TicTacToeGame
+from game import TicTacToeGame
 
 class Agent:
     """Base class for all Tic-Tac-Toe agents."""
@@ -283,7 +283,7 @@ class QLearningAgent(Agent):
         """
         if game.winner == game.current_player:
             return 5.0  # Win
-        elif game.winner == 0:
+        elif game.winner == 0 and game.game_over:
             return 1.0  # Tie
         elif game.winner == -game.current_player:
             return -3.0  # Loss
@@ -299,7 +299,6 @@ class QLearningAgent(Agent):
             if game_copy.winner == opponent:
                 blocked_win = True
                 break
-            game_copy.board[move] = 0
         
         if blocked_win:
             return 2.0  # Reward for blocking opponent win
@@ -307,15 +306,21 @@ class QLearningAgent(Agent):
         # Check if we're setting up a potential win
         current_player = game.current_player
         potential_win = False
-        for move in game.get_valid_moves():
-            game_copy.board = game.board.copy()
-            game_copy.board[move] = current_player
-            if abs(sum(game_copy.board[i, :])) == 3 or \
-               abs(sum(game_copy.board[:, i])) == 3 or \
-               abs(sum(np.diag(game_copy.board))) == 3 or \
-               abs(sum(np.diag(np.fliplr(game_copy.board)))) == 3:
+        game_copy = TicTacToeGame()
+        
+        # Check rows and columns
+        for i in range(3):
+            row_sum = abs(sum(game.board[i, :]))
+            col_sum = abs(sum(game.board[:, i]))
+            if row_sum == 2 or col_sum == 2:
                 potential_win = True
                 break
+        
+        # Check diagonals
+        diag_sum = abs(sum(np.diag(game.board)))
+        anti_diag_sum = abs(sum(np.diag(np.fliplr(game.board))))
+        if diag_sum == 2 or anti_diag_sum == 2:
+            potential_win = True
         
         if potential_win:
             return 1.5  # Reward for creating winning opportunity

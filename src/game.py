@@ -111,6 +111,15 @@ class TicTacToeGame:
         """
         return self.board.flatten()
     
+    def board_to_state(self):
+        """
+        Convert board array to string representation for Q-table key.
+        
+        Returns:
+            str: String representation of board state
+        """
+        return ''.join(map(str, self.board.flatten()))
+    
     def reset(self):
         """Reset the game to initial state."""
         self.board = np.zeros((3, 3), dtype=int)
@@ -134,4 +143,4 @@ class TicTacToeGame:
                     board_str += ' | '
             if i < 2:
                 board_str += '\n---------\n'
-        return board_str 
+        return board_str
