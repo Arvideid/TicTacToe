@@ -1,43 +1,50 @@
+"""
+Main entry point for the Tic-Tac-Toe AI Arena application.
+This module implements the graphical user interface and manages the game flow.
+"""
+
 import tkinter as tk
 from tkinter import ttk, messagebox
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from game import TicTacToeGame
-from agents import RandomAgent, MinimaxAgent
-from rl_agent import QLearningAgent
-import threading
-import time
+from agents import RandomAgent, MinimaxAgent, QLearningAgent
 
 class TicTacToeArena:
+    """
+    Main application class that provides a GUI for playing and analyzing Tic-Tac-Toe matches
+    between different AI agents.
+    """
     def __init__(self):
+        # Initialize main window
         self.window = tk.Tk()
         self.window.title("Tic-Tac-Toe AI Arena")
         self.window.geometry("1200x800")
         
-        # Initialize game and agents
+        # Initialize game instance and available AI agents
         self.game = TicTacToeGame()
         self.agents = {
-            "Random AI": RandomAgent(),
-            "Perfect AI": MinimaxAgent(),
-            "Learning AI": QLearningAgent()
+            "Random AI": RandomAgent(),      # Makes random valid moves
+            "Perfect AI": MinimaxAgent(),    # Uses minimax algorithm for perfect play
+            "Learning AI": QLearningAgent()  # Uses Q-learning to improve over time
         }
         
-        # Real-time stats tracking
+        # Initialize statistics tracking
         self.session_stats = {
             'episodes': [],
             'vs_random': {'wins': [], 'ties': [], 'losses': []},
             'vs_perfect': {'wins': [], 'ties': [], 'losses': []}
         }
         
-        # Match state
+        # Match state variables
         self.is_match_running = False
-        self.match_delay = 1000  # 1 second delay between moves
+        self.match_delay = 1000  # Default delay between moves (ms)
         self.current_match_stats = {"x_wins": 0, "o_wins": 0, "ties": 0}
         
-        # Setup UI
+        # Create the GUI layout
         self.create_layout()
         
-        # Bind window resize event
+        # Bind window resize event for responsive design
         self.window.bind("<Configure>", self.on_window_resize)
         
     def create_layout(self):
@@ -359,47 +366,49 @@ class TicTacToeArena:
             learning_role = "X" if is_learning_x else "O"
             opponent_role = "O" if is_learning_x else "X"
             
+            # Ensure all arrays have the same length
+            num_episodes = len(self.session_stats['episodes'])
+            episodes = self.session_stats['episodes'][-num_episodes:]
+            
             # Calculate win rates for random opponent
             if len(self.session_stats['vs_random']['wins']) > 0:
-                vs_random_wr = [wins/(wins+ties+losses) if (wins+ties+losses) > 0 else 0 
-                               for wins, ties, losses in zip(
-                                   self.session_stats['vs_random']['wins'],
-                                   self.session_stats['vs_random']['ties'],
-                                   self.session_stats['vs_random']['losses'])]
+                # Ensure arrays are of the same length
+                wins = self.session_stats['vs_random']['wins'][-num_episodes:]
+                ties = self.session_stats['vs_random']['ties'][-num_episodes:]
+                losses = self.session_stats['vs_random']['losses'][-num_episodes:]
+                
+                vs_random_wr = [w/(w+t+l) if (w+t+l) > 0 else 0 
+                               for w, t, l in zip(wins, ties, losses)]
                 
                 # Win rates over time
-                self.ax1.plot(self.session_stats['episodes'], vs_random_wr, 
+                self.ax1.plot(episodes, vs_random_wr, 
                              label=f'vs Random ({opponent_role})', color='#2196F3', linewidth=2)
                 
                 # Non-loss rate (wins + ties)
-                vs_random_nlr = [(wins+ties)/(wins+ties+losses) if (wins+ties+losses) > 0 else 0 
-                                for wins, ties, losses in zip(
-                                    self.session_stats['vs_random']['wins'],
-                                    self.session_stats['vs_random']['ties'],
-                                    self.session_stats['vs_random']['losses'])]
+                vs_random_nlr = [(w+t)/(w+t+l) if (w+t+l) > 0 else 0 
+                                for w, t, l in zip(wins, ties, losses)]
                 
-                self.ax2.plot(self.session_stats['episodes'], vs_random_nlr,
+                self.ax2.plot(episodes, vs_random_nlr,
                              label=f'vs Random ({opponent_role})', color='#4CAF50', linewidth=2)
             
             # Add perfect opponent data if it exists
             if len(self.session_stats['vs_perfect']['wins']) > 0:
-                vs_perfect_wr = [wins/(wins+ties+losses) if (wins+ties+losses) > 0 else 0 
-                                for wins, ties, losses in zip(
-                                    self.session_stats['vs_perfect']['wins'],
-                                    self.session_stats['vs_perfect']['ties'],
-                                    self.session_stats['vs_perfect']['losses'])]
+                # Ensure arrays are of the same length
+                wins = self.session_stats['vs_perfect']['wins'][-num_episodes:]
+                ties = self.session_stats['vs_perfect']['ties'][-num_episodes:]
+                losses = self.session_stats['vs_perfect']['losses'][-num_episodes:]
                 
-                self.ax1.plot(self.session_stats['episodes'], vs_perfect_wr,
+                vs_perfect_wr = [w/(w+t+l) if (w+t+l) > 0 else 0 
+                                for w, t, l in zip(wins, ties, losses)]
+                
+                self.ax1.plot(episodes, vs_perfect_wr,
                              label=f'vs Perfect ({opponent_role})', color='#F44336', linewidth=2)
                 
                 # Non-loss rate for perfect opponent
-                vs_perfect_nlr = [(wins+ties)/(wins+ties+losses) if (wins+ties+losses) > 0 else 0 
-                                 for wins, ties, losses in zip(
-                                     self.session_stats['vs_perfect']['wins'],
-                                     self.session_stats['vs_perfect']['ties'],
-                                     self.session_stats['vs_perfect']['losses'])]
+                vs_perfect_nlr = [(w+t)/(w+t+l) if (w+t+l) > 0 else 0 
+                                 for w, t, l in zip(wins, ties, losses)]
                 
-                self.ax2.plot(self.session_stats['episodes'], vs_perfect_nlr,
+                self.ax2.plot(episodes, vs_perfect_nlr,
                              label=f'vs Perfect ({opponent_role})', color='#FF9800', linewidth=2)
             
             # Configure plots
