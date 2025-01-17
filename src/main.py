@@ -8,7 +8,7 @@ from tkinter import ttk, messagebox
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from game import TicTacToeGame
-from agents import RandomAgent, MinimaxAgent, QLearningAgent
+from agents import RandomAgent, MinimaxAgent, QLearningAgent, HumanAgent
 
 class TicTacToeArena:
     """
@@ -26,7 +26,8 @@ class TicTacToeArena:
         self.agents = {
             "Random AI": RandomAgent(),      # Makes random valid moves
             "Perfect AI": MinimaxAgent(),    # Uses minimax algorithm for perfect play
-            "Learning AI": QLearningAgent()  # Uses Q-learning to improve over time
+            "Learning AI": QLearningAgent(),  # Uses Q-learning to improve over time
+            "Human": HumanAgent()  # Add HumanAgent to the available agents
         }
         
         # Initialize statistics tracking
@@ -558,16 +559,25 @@ class TicTacToeArena:
         # Get current player's agent
         current_player = "X" if self.game.current_player == 1 else "O"
         agent_type = self.player_x.get() if current_player == "X" else self.player_o.get()
+
+        # If the current agent is human, enable buttons for input
+        if agent_type == "Human":
+            self.status_label.config(text=f"Your turn ({current_player})")
+            for i in range(3):
+                for j in range(3):
+                    if self.game.board[i, j] == 0:
+                        self.buttons[i * 3 + j].config(state="normal", command=lambda row=i, col=j: self.make_human_move(row, col))
+            return  # Stop here and wait for human input via button click
+
+        # For AI agents, proceed as before
         agent = self.agents[agent_type]
-        
-        # Make move
         row, col = agent.get_move(self.game)
         self.game.make_move(row, col)
         self.update_board()
-        
+
         # Update status with current player and their type
         self.status_label.config(text=f"Current player: {current_player} ({agent_type})")
-        
+
         # Schedule next move
         self.window.after(self.match_delay, self.make_ai_move)
     
@@ -577,7 +587,8 @@ class TicTacToeArena:
             for j in range(3):
                 value = self.game.board[i, j]
                 text = "X" if value == 1 else "O" if value == -1 else ""
-                self.buttons[i * 3 + j].configure(text=text)
+                # Reset button command to avoid multiple bindings
+                self.buttons[i * 3 + j].config(text=text, command=lambda: None)
     
     def start_match(self):
         """Start an AI vs AI match."""
@@ -630,6 +641,19 @@ class TicTacToeArena:
     def run(self):
         """Start the application."""
         self.window.mainloop()
+
+    def make_human_move(self, row, col):
+        """Process human move and update the game."""
+        # Make the move on the board
+        self.game.make_move(row, col)
+        self.update_board()
+
+        # Disable buttons after move
+        for button in self.buttons:
+            button.config(state="disabled")
+
+        # Continue with the game
+        self.window.after(self.match_delay, self.make_ai_move)
 
 def main():
     arena = TicTacToeArena()
