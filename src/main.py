@@ -127,7 +127,7 @@ class TicTacToeArena:
         self.buttons = []
         for i in range(3):
             for j in range(3):
-                button = ttk.Button(board_frame, text="", state="disabled")
+                button = tk.Button(board_frame, text="", state="disabled", width=5, height=2, font=("Arial", 24))
                 button.grid(row=i, column=j, sticky="nsew", padx=2, pady=2)
                 self.buttons.append(button)
         
@@ -509,8 +509,9 @@ class TicTacToeArena:
                 is_learning_x = self.player_x.get() == "Learning AI"
                 games_played = int(self.num_games.get()) - self.num_games_remaining + 1
                 
-                # Add new game count
-                self.session_stats['episodes'].append(games_played)
+                # Determine opponent and update stats
+                opponent = self.player_o.get() if is_learning_x else self.player_x.get()
+                stats_key = 'vs_random' if opponent == "Random AI" else 'vs_perfect'
                 
                 # Calculate result from Learning AI's perspective
                 if is_learning_x:
@@ -521,18 +522,18 @@ class TicTacToeArena:
                     lost = self.game.winner == 1
                 tied = self.game.winner == 0
                 
-                # Determine opponent and update stats
-                opponent = self.player_o.get() if is_learning_x else self.player_x.get()
-                stats_key = 'vs_random' if opponent == "Random AI" else 'vs_perfect'
-                
-                # Update cumulative stats
-                prev_wins = self.session_stats[stats_key]['wins'][-1] if self.session_stats[stats_key]['wins'] else 0
-                prev_ties = self.session_stats[stats_key]['ties'][-1] if self.session_stats[stats_key]['ties'] else 0
-                prev_losses = self.session_stats[stats_key]['losses'][-1] if self.session_stats[stats_key]['losses'] else 0
-                
-                self.session_stats[stats_key]['wins'].append(prev_wins + (1 if won else 0))
-                self.session_stats[stats_key]['ties'].append(prev_ties + (1 if tied else 0))
-                self.session_stats[stats_key]['losses'].append(prev_losses + (1 if lost else 0))
+                # Update cumulative stats every 5 games
+                if games_played % 5 == 0:
+                    # Add new game count
+                    self.session_stats['episodes'].append(games_played)
+                    
+                    prev_wins = self.session_stats[stats_key]['wins'][-1] if self.session_stats[stats_key]['wins'] else 0
+                    prev_ties = self.session_stats[stats_key]['ties'][-1] if self.session_stats[stats_key]['ties'] else 0
+                    prev_losses = self.session_stats[stats_key]['losses'][-1] if self.session_stats[stats_key]['losses'] else 0
+                    
+                    self.session_stats[stats_key]['wins'].append(prev_wins + (1 if won else 0))
+                    self.session_stats[stats_key]['ties'].append(prev_ties + (1 if tied else 0))
+                    self.session_stats[stats_key]['losses'].append(prev_losses + (1 if lost else 0))
             
             self.num_games_remaining -= 1
             
@@ -587,8 +588,19 @@ class TicTacToeArena:
             for j in range(3):
                 value = self.game.board[i, j]
                 text = "X" if value == 1 else "O" if value == -1 else ""
-                # Reset button command to avoid multiple bindings
-                self.buttons[i * 3 + j].config(text=text, command=lambda: None)
+                button = self.buttons[i * 3 + j]
+                button.config(text=text, command=lambda: None)
+
+                # Update button appearance based on game state
+                if text:
+                    # Button is no longer clickable, change its appearance
+                    button.config(
+                        state="disabled",
+                        disabledforeground="black" if text == "X" else "blue",  # Change text color
+                    )
+                else:
+                    # Reset appearance for empty cells
+                    button.config(state="normal")
     
     def start_match(self):
         """Start an AI vs AI match."""
@@ -635,6 +647,10 @@ class TicTacToeArena:
         self.game.reset()
         self.update_board()
         
+        # Reset button appearance for new game
+        for button in self.buttons:
+            button.config(state="normal")
+        
         # Make AI move
         self.make_ai_move()
     
@@ -648,12 +664,8 @@ class TicTacToeArena:
         self.game.make_move(row, col)
         self.update_board()
 
-        # Disable buttons after move
-        for button in self.buttons:
-            button.config(state="disabled")
-
-        # Continue with the game
-        self.window.after(self.match_delay, self.make_ai_move)
+        # Continue with the game immediately after human move
+        self.make_ai_move()
 
 def main():
     arena = TicTacToeArena()
