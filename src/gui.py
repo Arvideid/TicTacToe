@@ -12,6 +12,10 @@ class TicTacToeGUI:
         self.root.title("Tic-Tac-Toe AI Arena")
         self.root.configure(bg='#f0f0f0')
         
+        # Configure grid weights for responsiveness
+        self.root.grid_rowconfigure(0, weight=1)
+        self.root.grid_columnconfigure(0, weight=1)
+        
         # Game state
         self.game = TicTacToeGame()
         self.agents = {
@@ -27,69 +31,115 @@ class TicTacToeGUI:
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
+        # Configure grid weights for responsiveness
+        main_frame.grid_rowconfigure(0, weight=1)
+        main_frame.grid_columnconfigure(1, weight=1)
+        main_frame.grid_columnconfigure(2, weight=1)
+        
         # Left panel for controls
         left_panel = ttk.Frame(main_frame)
-        left_panel.grid(row=0, column=0, padx=10, sticky=tk.N)
+        left_panel.grid(row=0, column=0, padx=10, sticky=tk.N+tk.S+tk.W+tk.E)
         
         # Game settings
         settings_frame = ttk.LabelFrame(left_panel, text="Game Settings", padding="10")
-        settings_frame.grid(row=0, column=0, sticky=tk.W+tk.E, pady=(0,10))
+        settings_frame.grid(row=0, column=0, sticky=tk.W+tk.E+tk.N, pady=(0,10))
         
         # Player selection with better spacing
-        ttk.Label(settings_frame, text="Player X:").grid(row=0, column=0, padx=5, pady=5)
+        ttk.Label(settings_frame, text="Player X:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
         self.player_x = ttk.Combobox(settings_frame, values=['human', 'random', 'perfect', 'learning'], width=15)
-        self.player_x.grid(row=0, column=1, padx=5, pady=5)
+        self.player_x.grid(row=0, column=1, padx=5, pady=5, sticky=tk.W+tk.E)
         self.player_x.set('random')
         
-        ttk.Label(settings_frame, text="Player O:").grid(row=1, column=0, padx=5, pady=5)
+        ttk.Label(settings_frame, text="Player O:").grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
         self.player_o = ttk.Combobox(settings_frame, values=['human', 'random', 'perfect', 'learning'], width=15)
-        self.player_o.grid(row=1, column=1, padx=5, pady=5)
+        self.player_o.grid(row=1, column=1, padx=5, pady=5, sticky=tk.W+tk.E)
         self.player_o.set('learning')
         
         # Game controls
-        ttk.Label(settings_frame, text="Games:").grid(row=2, column=0, padx=5, pady=5)
+        ttk.Label(settings_frame, text="Games:").grid(row=2, column=0, padx=5, pady=5, sticky=tk.W)
         self.num_games = ttk.Entry(settings_frame, width=10)
-        self.num_games.grid(row=2, column=1, padx=5, pady=5)
+        self.num_games.grid(row=2, column=1, padx=5, pady=5, sticky=tk.W+tk.E)
         self.num_games.insert(0, "100")
         
-        ttk.Label(settings_frame, text="Delay (ms):").grid(row=3, column=0, padx=5, pady=5)
+        ttk.Label(settings_frame, text="Delay (ms):").grid(row=3, column=0, padx=5, pady=5, sticky=tk.W)
         self.move_delay = ttk.Entry(settings_frame, width=10)
-        self.move_delay.grid(row=3, column=1, padx=5, pady=5)
+        self.move_delay.grid(row=3, column=1, padx=5, pady=5, sticky=tk.W+tk.E)
         self.move_delay.insert(0, "100")
         
+        # Q-Learning parameters
+        qlearn_frame = ttk.LabelFrame(left_panel, text="Q-Learning Settings", padding="10")
+        qlearn_frame.grid(row=1, column=0, sticky=tk.W+tk.E+tk.N, pady=(0,10))
+        
+        # Learning rate
+        ttk.Label(qlearn_frame, text="Learning Rate:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        self.learning_rate = ttk.Entry(qlearn_frame, width=10)
+        self.learning_rate.grid(row=0, column=1, padx=5, pady=5, sticky=tk.W+tk.E)
+        self.learning_rate.insert(0, "0.7")
+        
+        # Discount factor
+        ttk.Label(qlearn_frame, text="Discount Factor:").grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
+        self.discount_factor = ttk.Entry(qlearn_frame, width=10)
+        self.discount_factor.grid(row=1, column=1, padx=5, pady=5, sticky=tk.W+tk.E)
+        self.discount_factor.insert(0, "0.9")
+        
+        # Initial epsilon
+        ttk.Label(qlearn_frame, text="Initial ε:").grid(row=2, column=0, padx=5, pady=5, sticky=tk.W)
+        self.initial_epsilon = ttk.Entry(qlearn_frame, width=10)
+        self.initial_epsilon.grid(row=2, column=1, padx=5, pady=5, sticky=tk.W+tk.E)
+        self.initial_epsilon.insert(0, "0.3")
+        
+        # Min epsilon
+        ttk.Label(qlearn_frame, text="Min ε:").grid(row=3, column=0, padx=5, pady=5, sticky=tk.W)
+        self.min_epsilon = ttk.Entry(qlearn_frame, width=10)
+        self.min_epsilon.grid(row=3, column=1, padx=5, pady=5, sticky=tk.W+tk.E)
+        self.min_epsilon.insert(0, "0.1")
+        
+        # Epsilon decay
+        ttk.Label(qlearn_frame, text="ε Decay Rate:").grid(row=4, column=0, padx=5, pady=5, sticky=tk.W)
+        self.epsilon_decay = ttk.Entry(qlearn_frame, width=10)
+        self.epsilon_decay.grid(row=4, column=1, padx=5, pady=5, sticky=tk.W+tk.E)
+        self.epsilon_decay.insert(0, "0.995")
+        
         # Control buttons
-        button_frame = ttk.Frame(settings_frame)
-        button_frame.grid(row=4, column=0, columnspan=2, pady=10)
+        button_frame = ttk.Frame(left_panel)
+        button_frame.grid(row=2, column=0, sticky=tk.W+tk.E, pady=10)
+        button_frame.grid_columnconfigure(0, weight=1)
+        button_frame.grid_columnconfigure(1, weight=1)
         
         self.start_btn = ttk.Button(button_frame, text="Start Match", command=self.start_match)
-        self.start_btn.grid(row=0, column=0, padx=5)
+        self.start_btn.grid(row=0, column=0, padx=5, sticky=tk.W+tk.E)
         
         self.stop_btn = ttk.Button(button_frame, text="Stop Match", command=self.stop_match)
-        self.stop_btn.grid(row=0, column=1, padx=5)
+        self.stop_btn.grid(row=0, column=1, padx=5, sticky=tk.W+tk.E)
         self.stop_btn['state'] = 'disabled'
         
         # Center panel for game board
         center_panel = ttk.Frame(main_frame)
-        center_panel.grid(row=0, column=1, padx=20)
+        center_panel.grid(row=0, column=1, padx=20, sticky=tk.N+tk.S+tk.E+tk.W)
+        for i in range(3):
+            center_panel.grid_rowconfigure(i, weight=1)
+            center_panel.grid_columnconfigure(i, weight=1)
         
         # Game board with improved styling
         self.board_buttons = []
         for i in range(3):
             for j in range(3):
                 btn = ttk.Button(center_panel, text='', width=5, style='Game.TButton')
-                btn.grid(row=i, column=j, padx=3, pady=3, ipadx=10, ipady=10)
+                btn.grid(row=i, column=j, padx=3, pady=3, ipadx=10, ipady=10, sticky=tk.W+tk.E+tk.N+tk.S)
                 btn.configure(command=lambda row=i, col=j: self.make_move(row, col))
                 self.board_buttons.append(btn)
         
         # Right panel for stats
         right_panel = ttk.Frame(main_frame)
-        right_panel.grid(row=0, column=2, padx=10, sticky=tk.N)
+        right_panel.grid(row=0, column=2, padx=10, sticky=tk.N+tk.S+tk.E+tk.W)
+        right_panel.grid_rowconfigure(1, weight=1)
+        right_panel.grid_columnconfigure(0, weight=1)
         
         # Performance graph
         self.fig = Figure(figsize=(6, 4))
         self.ax = self.fig.add_subplot(111)
         self.canvas = FigureCanvasTkAgg(self.fig, master=right_panel)
-        self.canvas.get_tk_widget().grid(row=0, column=0, pady=(0,10))
+        self.canvas.get_tk_widget().grid(row=0, column=0, pady=(0,10), sticky=tk.W+tk.E+tk.N+tk.S)
         
         self.ax.set_title('Learning Agent Win Rate')
         self.ax.set_xlabel('Games Played')
@@ -99,7 +149,7 @@ class TicTacToeGUI:
         
         # Match history
         history_frame = ttk.LabelFrame(right_panel, text="Match History", padding="5")
-        history_frame.grid(row=1, column=0, sticky=tk.W+tk.E)
+        history_frame.grid(row=1, column=0, sticky=tk.W+tk.E+tk.N+tk.S)
         
         # Treeview with scrollbar
         self.history_tree = ttk.Treeview(history_frame, columns=('game', 'winner', 'result'), 
@@ -110,7 +160,7 @@ class TicTacToeGUI:
         self.history_tree.column('game', width=60)
         self.history_tree.column('winner', width=60)
         self.history_tree.column('result', width=100)
-        self.history_tree.grid(row=0, column=0, sticky=tk.W+tk.E)
+        self.history_tree.grid(row=0, column=0, sticky=tk.W+tk.E+tk.N+tk.S)
         
         scrollbar = ttk.Scrollbar(history_frame, orient=tk.VERTICAL, command=self.history_tree.yview)
         scrollbar.grid(row=0, column=1, sticky=tk.N+tk.S)
@@ -218,6 +268,25 @@ class TicTacToeGUI:
     
     def start_match(self):
         try:
+            # Validate Q-learning parameters
+            lr = float(self.learning_rate.get())
+            df = float(self.discount_factor.get())
+            ie = float(self.initial_epsilon.get())
+            me = float(self.min_epsilon.get())
+            ed = float(self.epsilon_decay.get())
+            
+            if not (0 < lr <= 1 and 0 < df <= 1 and 0 <= ie <= 1 and 0 <= me <= ie and 0 < ed <= 1):
+                raise ValueError("Invalid Q-learning parameters. All values must be between 0 and 1.")
+            
+            # Create new Q-learning agent with current parameters
+            self.agents['learning'] = QLearningAgent(
+                learning_rate=lr,
+                discount_factor=df,
+                initial_epsilon=ie,
+                min_epsilon=me,
+                epsilon_decay_rate=ed
+            )
+            
             self.games_remaining = int(self.num_games.get())
             if self.games_remaining <= 0:
                 raise ValueError("Number of games must be positive")
