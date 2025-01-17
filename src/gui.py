@@ -6,9 +6,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from game import TicTacToeGame
 from agents import RandomAgent, MinimaxAgent, QLearningAgent
 import os
-import json
 import pickle
-import torch
 import datetime
 
 class TicTacToeGUI:
